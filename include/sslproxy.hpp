@@ -4,12 +4,25 @@
 #include <memory>
 #include <string>
 #include <utility>
+
+#ifdef BOOST_ASIO
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+
+namespace net = boost::asio;
+namespace ssl = net::ssl;
+namespace err = boost::system;
+using net::ip::tcp;
+#else
 #include <asio.hpp>
 #include <asio/ssl.hpp>
 
 namespace net = asio;
 namespace ssl = net::ssl;
+namespace err = net;
 using net::ip::tcp;
+#endif
+
 
 class ProxySession : public std::enable_shared_from_this<ProxySession>
 {
@@ -32,7 +45,7 @@ public:
 		auto self = shared_from_this();
 		//std::cout << "DEBUG: [Session] ProxySession started. Connecting to target." << std::endl;
 
-		target_socket_.async_connect(target_endpoint_, [this, self](const net::error_code& ec)
+		target_socket_.async_connect(target_endpoint_, [this, self](const err::error_code& ec)
 		{
 			if (!ec)
 			{
@@ -71,12 +84,12 @@ private:
 
 		client_socket_->async_read_some(
 			net::buffer(client_data_, max_length),
-			[this, self](const net::error_code& ec, std::size_t length)
+			[this, self](const err::error_code& ec, std::size_t length)
 			{
 				if (!ec)
 				{
 					//std::cout << "DEBUG: Read " << length << " bytes from client (Encrypted)." << std::endl;
-					net::async_write(self->target_socket_, net::buffer(self->client_data_, length), [this, self](const net::error_code& write_ec, std::size_t /*written*/)
+					net::async_write(self->target_socket_, net::buffer(self->client_data_, length), [this, self](const err::error_code& write_ec, std::size_t /*written*/)
 					{
 						if(!write_ec)
 						{
@@ -115,7 +128,7 @@ private:
 
 		target_socket_.async_read_some(
 			net::buffer(target_data_, max_length),
-			[this, self](const net::error_code& ec, std::size_t length)
+			[this, self](const err::error_code& ec, std::size_t length)
 			{
 				if(!ec)
 				{
@@ -123,7 +136,7 @@ private:
 					{
 						//std::cout << "DEBUG: [TargetRead] Tunneling " << length << " bytes." << std::endl;
 
-						net::async_write(*self->client_socket_, net::buffer(self->target_data_, length), [this, self, length](const net::error_code& write_ec, std::size_t /*written*/)
+						net::async_write(*self->client_socket_, net::buffer(self->target_data_, length), [this, self, length](const err::error_code& write_ec, std::size_t /*written*/)
 						{
 							if(!write_ec)
 							{
@@ -182,7 +195,7 @@ private:
 							net::async_write(
 								*self->client_socket_,
 								net::buffer(*buffer_ptr),
-								[self, buffer_ptr](const net::error_code& write_ec, std::size_t /*written*/)
+								[self, buffer_ptr](const err::error_code& write_ec, std::size_t /*written*/)
 								{
 									if(!write_ec)
 									{
@@ -228,7 +241,7 @@ private:
 		auto self = shared_from_this();
 
 		client_socket_moved->async_shutdown(
-			[self, client_socket_moved = std::move(client_socket_moved)](const net::error_code& ec)
+			[self, client_socket_moved = std::move(client_socket_moved)](const err::error_code& ec)
 			{
 				if(ec)
 				{
@@ -246,7 +259,7 @@ private:
 
 	void close_sockets_only_target()
 	{
-		net::error_code ec;
+		err::error_code ec;
 		if (target_socket_.is_open())
 		{
 			target_socket_.shutdown(tcp::socket::shutdown_both, ec);
@@ -415,7 +428,7 @@ private:
 
 		//std::cout << "DEBUG: [SslProxy] Listening for new connection." << std::endl;
 
-		acceptor_.async_accept(*socket_ptr, [this, socket_ptr](const net::error_code& ec)
+		acceptor_.async_accept(*socket_ptr, [this, socket_ptr](const err::error_code& ec)
 		{
 			if(!ec)
 			{
@@ -439,7 +452,7 @@ private:
 		//std::cout << "DEBUG: [Handshake] async_handshake initiated." << std::endl;
 		ssl_stream_ptr->async_handshake(
 			ssl::stream_base::server,
-			[this, ssl_stream_ptr = std::move(ssl_stream_ptr)](const net::error_code& ec) mutable
+			[this, ssl_stream_ptr = std::move(ssl_stream_ptr)](const err::error_code& ec) mutable
 			{
 				if (!ec)
 				{

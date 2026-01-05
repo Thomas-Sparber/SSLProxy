@@ -26,7 +26,7 @@ All of this is done using libasio and openssl
 # Usage / Examples
 Please check the src folders for some examples how this SSL proxy can be used
 
-#Certificate
+# Certificate
 Please don't use the provided example certificate for production use :-)
 
 You can create a self signed certificate using OpenSSL, e.g.
